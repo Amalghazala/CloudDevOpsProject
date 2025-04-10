@@ -1,0 +1,18 @@
+---
+- name: Create SonarQube directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - /opt/sonarqube
+    - /opt/sonarqube/data
+
+- name: Run SonarQube container
+  docker_container:
+    name: sonarqube
+    image: sonarqube:lts
+    ports:
+      - "9000:9000"
+    volumes:
+      - /opt/sonarqube/data:/opt/sonarqube/data
+    restart_policy: always

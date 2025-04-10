@@ -1,0 +1,15 @@
+---
+- hosts: all
+  become: yes
+  roles:
+    - common
+
+- hosts: jenkins
+  become: yes
+  roles:
+    - jenkins
+
+- hosts: sonarqube
+  become: yes
+  roles:
+    - sonarqube

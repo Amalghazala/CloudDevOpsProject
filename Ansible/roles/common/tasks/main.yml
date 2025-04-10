@@ -1,0 +1,27 @@
+---
+- name: Update all packages
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Install base packages
+  yum:
+    name:
+      - git
+      - docker
+      - java-11-amazon-corretto
+      - python3
+    state: present
+
+- name: Start Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add ec2-user to docker group
+  user:
+    name: ec2-user
+    groups: docker
+    append: yes

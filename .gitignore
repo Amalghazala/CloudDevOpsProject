@@ -11,3 +11,4 @@
 # مفاتيح AWS
 *.pem
 *.secret
+.terraform/
