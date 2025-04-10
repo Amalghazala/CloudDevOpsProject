@@ -1,0 +1,13 @@
+# ملفات Terraform المهملة
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# ملفات IDE
+.idea/
+.vscode/
+
+# مفاتيح AWS
+*.pem
+*.secret
