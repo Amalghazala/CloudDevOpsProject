@@ -1,0 +1,48 @@
+---
+- name: Ensure EPEL repository is enabled
+  yum:
+    name: epel-release
+    state: present
+
+- name: Add Jenkins repository
+  get_url:
+    url: https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    dest: /etc/yum.repos.d/jenkins.repo
+    validate_certs: no
+    mode: '0644'
+
+- name: Import Jenkins GPG key (الطريقة الأكثر موثوقية)
+  shell: |
+    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key || true
+    rpm -q gpg-pubkey --qf '%{NAME}-%{VERSION}-%{RELEASE}\t%{SUMMARY}\n' | grep jenkins
+  args:
+    executable: /bin/bash
+  register: key_import
+  changed_when: "'jenkins' in key_import.stdout"
+
+- name: Clean yum cache
+  command: yum clean all
+  args:
+    warn: false
+
+- name: Install Jenkins with dependencies
+  yum:
+    name:
+      - jenkins
+      - java-11-openjdk-devel
+    state: present
+    disable_gpg_check: yes
+    update_cache: yes
+
+- name: Ensure Jenkins service is running
+  service:
+    name: jenkins
+    state: started
+    enabled: yes
+
+- name: Open Jenkins port in firewall
+  firewalld:
+    port: 8080/tcp
+    permanent: yes
+    state: enabled
+  notify: restart firewalld

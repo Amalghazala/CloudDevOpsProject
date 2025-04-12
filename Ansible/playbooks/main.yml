@@ -1,15 +1,15 @@
 ---
-- hosts: all
+- hosts: tag_AppInstance_*
   become: yes
   roles:
     - common
 
-- hosts: jenkins
+- hosts: tag_AppInstance_jenkins
   become: yes
   roles:
     - jenkins
 
-- hosts: sonarqube
+- hosts: tag_AppInstance_sonarqube
   become: yes
   roles:
     - sonarqube

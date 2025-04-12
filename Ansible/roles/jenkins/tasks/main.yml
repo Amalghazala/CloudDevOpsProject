@@ -1,27 +1,117 @@
 ---
-- name: Add Jenkins repo
+- name: Update all packages
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+  tags: update
+
+- name: Install Java 17
+  yum:
+    name:
+      - java-17-amazon-corretto
+      - java-17-amazon-corretto-devel
+    state: present
+  tags: java
+
+- name: Configure Java alternatives
+  block:
+    - name: Install alternatives if missing
+      package:
+        name: alternatives
+        state: present
+      when: "'alternatives' not in ansible_facts.packages"
+      
+    - name: Register Java alternative
+      command: alternatives --install /usr/bin/java java /usr/lib/jvm/java-17-amazon-corretto/bin/java 1
+      
+    - name: Set Java alternative
+      command: alternatives --set java /usr/lib/jvm/java-17-amazon-corretto/bin/java
+  tags: java
+
+- name: Add Jenkins repository
   get_url:
     url: https://pkg.jenkins.io/redhat-stable/jenkins.repo
     dest: /etc/yum.repos.d/jenkins.repo
+    validate_certs: no
+    mode: '0644'
+  tags: repo
 
 - name: Import Jenkins key
   rpm_key:
     key: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+    state: present
+  tags: repo
 
 - name: Install Jenkins
   yum:
     name: jenkins
     state: present
+    disable_gpg_check: yes
+  tags: install
 
-- name: Start Jenkins
-  service:
-    name: jenkins
-    state: started
-    enabled: yes
+- name: Create Jenkins directories
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "/var/lib/jenkins", owner: "ec2-user", group: "ec2-user", mode: "0755" }
+    - { path: "/var/cache/jenkins/war", owner: "ec2-user", group: "ec2-user", mode: "0755" }
+    - { path: "/var/log/jenkins", owner: "ec2-user", group: "ec2-user", mode: "0755" }
+  tags: config
 
-- name: Open firewall port
-  firewalld:
-    port: 8080/tcp
-    permanent: yes
-    state: enabled
-  notify: restart firewalld
+- name: Configure Jenkins
+  block:
+    - name: Create config file
+      copy:
+        dest: /etc/sysconfig/jenkins
+        content: |
+          JENKINS_USER="ec2-user"
+          JENKINS_PORT="8080"
+          JENKINS_HOME="/var/lib/jenkins"
+          JENKINS_JAVA_CMD="/usr/lib/jvm/java-17-amazon-corretto/bin/java"
+          JENKINS_WAR="/usr/share/java/jenkins.war"
+          JENKINS_WEBROOT="/var/cache/jenkins/war"
+          JENKINS_LOG="/var/log/jenkins/jenkins.log"
+        mode: '0644'
+      register: jenkins_conf
+
+    - name: Set proper permissions
+      file:
+        path: /var/lib/jenkins
+        owner: ec2-user
+        group: ec2-user
+        recurse: yes
+  tags: config
+
+- name: Start Jenkins service
+  block:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Reset failed state
+      command: systemctl reset-failed jenkins
+      ignore_errors: yes
+
+    - name: Start and enable Jenkins
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+
+    - name: Wait for Jenkins
+      wait_for:
+        port: 8080
+        delay: 10
+        timeout: 300
+  tags: service
+
+- name: Get admin password
+  command: cat /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_password
+  changed_when: false
+  tags: verify
