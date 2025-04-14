@@ -1,0 +1,58 @@
+@Library('my-shared-library') _
+
+pipeline {
+    agent {
+        label ''
+    }
+
+    environment {
+        DOCKER_IMAGE = 'amalghazala11/web-app'
+        REGISTRY_CREDENTIALS = 'docker-hub-credentials'
+        K8S_MANIFESTS_PATH = 'docker/FinalProjectCode/web-app/kubernetes'
+    }
+
+    stages {
+        stage('Unit Test') {
+            steps {
+                sh 'echo Running Unit Tests...'
+            }
+        }
+
+        stage('Build JAR') {
+            steps {
+                buildJar()
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                buildImage(DOCKER_IMAGE)
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                pushImage(DOCKER_IMAGE, REGISTRY_CREDENTIALS)
+            }
+        }
+
+        stage('Delete Image Locally') {
+            steps {
+                deleteLocalImage(DOCKER_IMAGE)
+            }
+        }
+
+        stage('Update Manifests') {
+            steps {
+                updateManifests(DOCKER_IMAGE, K8S_MANIFESTS_PATH)
+            }
+        }
+
+        stage('Push Manifests') {
+            steps {
+                pushManifests()
+            }
+        }
+    }
+}
+
